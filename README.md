@@ -81,13 +81,14 @@ uvicorn app.main:app --reload --port 8002
 ### 5. Start the Frontend Client
 ```bash
 cd frontend
-# Follow setup instructions in frontend/README.md
+npm install
+npm run dev
 ```
 
 ---
 
 ## 5. Technology Stack
-- **Frontend**: Web Client (Technology TBD)
+- **Frontend**: React, Vite, TypeScript, Tailwind CSS
 - **Microservices Backend**: Python (FastAPI), Pydantic
 - **AI Triage Module**: Groq API (High-speed LPU inference integrated into `pqrs-service`)
 - **Persistence**: Relational Database (PostgreSQL - Database per Service pattern)

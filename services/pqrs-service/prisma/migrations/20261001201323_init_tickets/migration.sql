@@ -16,4 +16,3 @@ CREATE TABLE "tickets" (
 
     CONSTRAINT "tickets_pkey" PRIMARY KEY ("id")
 );
-
