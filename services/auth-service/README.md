@@ -27,6 +27,18 @@ npm run test:cov    # with coverage report
 
 Tests live in `test/`. The repository is mocked, so the suite runs without PostgreSQL.
 
+```bash
+# Publisher against a real broker (docker compose up -d rabbitmq)
+npm run test:integration
+```
+
+## Events (RabbitMQ)
+
+After a successful registration the service publishes `UserRegistered` to the `microservices.events` exchange
+with routing key `user.registered` (see [docs/rabbitmq](../../docs/rabbitmq/README.md)). Configure it with
+`RABBITMQ_URL` / `RABBITMQ_EXCHANGE`; leave `RABBITMQ_URL` empty to disable publishing. A broker outage never
+fails the registration.
+
 ## Endpoints
 
 All routes are prefixed with `/api/v1` (except `/health`).

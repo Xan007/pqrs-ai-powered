@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { AiModule } from './ai/ai.module';
 import { TicketsModule } from './tickets/tickets.module';
+import { MessagingModule } from './messaging/messaging.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 import { BullModule } from '@nestjs/bullmq';
@@ -25,6 +26,7 @@ import { BullModule } from '@nestjs/bullmq';
     PrismaModule,
     AiModule,
     TicketsModule,
+    MessagingModule,
   ],
   providers: [
     {

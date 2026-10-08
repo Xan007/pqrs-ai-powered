@@ -27,6 +27,28 @@ services:
     ports:
       - "6379:6379"
 
+  # Message broker for asynchronous communication between microservices.
+  #   AMQP:          amqp://guest:guest@localhost:5672
+  #   Management UI: http://localhost:15672  (guest / guest)
+  # If those host ports are taken, override them: RABBITMQ_PORT=5673 RABBITMQ_MANAGEMENT_PORT=15673
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: telematics_rabbitmq
+    # Fixed hostname: RabbitMQ stores its data per node name, so the volume survives recreations
+    hostname: rabbit-host
+    restart: always
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
   # Production images (same ones deployed to Azure). Run with:
   #   docker compose --profile app up --build
   auth-service:
@@ -35,10 +57,13 @@ services:
     environment:
       DATABASE_URL: postgresql://dev_user:dev_password@postgres:5432/auth_db
       JWT_SECRET: local_dev_jwt_secret
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
     ports:
       - "8001:8001"
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   pqrs-service:
@@ -47,6 +72,7 @@ services:
     environment:
       DATABASE_URL: postgresql://dev_user:dev_password@postgres:5432/pqrs_db
       REDIS_HOST: redis
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       COMPANY_CATEGORIES: PETITION,COMPLAINT,CLAIM,SUGGESTION
       COMPANY_PRIORITIES: LOW,MEDIUM,HIGH,CRITICAL
@@ -58,6 +84,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
 
 volumes:
   postgres_data:
+  rabbitmq_data:

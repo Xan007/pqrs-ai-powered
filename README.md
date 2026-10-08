@@ -13,11 +13,12 @@ This project implements an intelligent, distributed system that automates the tr
 ---
 
 ## 2. Architecture Overview
-The system follows a **Microservices Architecture** to ensure decoupling, scalability, and independent deployment cycles. Services communicate over secure **HTTP/REST APIs**:
+The system follows a **Microservices Architecture** to ensure decoupling, scalability, and independent deployment cycles. Clients talk to the services over **HTTP/REST APIs**, and the services talk to each other **asynchronously through RabbitMQ** (see [docs/rabbitmq](docs/rabbitmq/README.md)):
 
 - **Frontend Client**: Web interface for user authentication and PQRS management.
 - **Authentication Service**: Manages user identity, credential verification, and session tokens.
 - **PQRS Domain Service**: Handles the lifecycle of PQRS requests, database persistence, and integrates an **internal AI Triage Module** (powered by Groq) for real-time classification, categorization, and urgency scoring.
+- **RabbitMQ Message Broker**: `auth-service` publishes `UserRegistered` to the `microservices.events` exchange; `pqrs-service` consumes it from `pqrs.user.registered.queue`.
 
 ---
 
@@ -25,12 +26,14 @@ The system follows a **Microservices Architecture** to ensure decoupling, scalab
 
 ```text
 Telematics-Project/
+├── contracts/        # Integration event contracts shared by the services
 ├── docker/
 ├── docs/
 ├── frontend/
 ├── services/
 │   ├── auth-service/
 │   └── pqrs-service/
+├── tests/e2e/        # Cross-service tests against the running containers
 ├── .gitignore
 ├── docker-compose.yml
 └── README.md
@@ -53,7 +56,7 @@ cd Telematics-Project
 ```
 
 ### 2. Start Local Databases (Docker)
-This starts a PostgreSQL instance and automatically provisions independent databases (`auth_db` and `pqrs_db`):
+This starts PostgreSQL (with independent databases `auth_db` and `pqrs_db`), Redis and RabbitMQ (management UI at http://localhost:15672, guest / guest):
 ```bash
 docker compose up -d
 ```

@@ -33,3 +33,17 @@ npm run start:dev
 
 - **API Endpoint:** `http://localhost:8002/api/v1/tickets`
 - **Swagger Documentation:** `http://localhost:8002/docs`
+
+## Tests
+
+```bash
+npm test                    # unit tests, no external services
+npm run test:integration    # RabbitMQ consumer against a real broker (docker compose up -d rabbitmq)
+```
+
+## Events (RabbitMQ)
+
+`UserRegisteredConsumer` consumes `UserRegistered` events published by auth-service from
+`pqrs.user.registered.queue` (bound to `microservices.events` / `user.registered`). Invalid messages and messages
+that fail twice go to `pqrs.user.registered.queue.dlq`. Configure it with `RABBITMQ_URL`, `RABBITMQ_EXCHANGE` and
+`RABBITMQ_PREFETCH`; leave `RABBITMQ_URL` empty to disable the consumers. See [docs/rabbitmq](../../docs/rabbitmq/README.md).

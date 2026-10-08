@@ -3,6 +3,8 @@ module.exports = {
     testEnvironment: 'node',
     roots: ['<rootDir>/test'],
     testMatch: ['**/*.spec.ts'],
+    // Broker-backed tests run separately with `npm run test:integration`.
+    testPathIgnorePatterns: ['/node_modules/', '/test/integration/'],
     transform: {
         '^.+\\.ts$': ['ts-jest', { tsconfig: 'tsconfig.spec.json' }],
     },

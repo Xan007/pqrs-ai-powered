@@ -1,0 +1,18 @@
+{
+  "exchange": "microservices.events",
+  "routingKey": "user.registered",
+  "publisher": "auth-service",
+  "consumers": ["pqrs-service (queue: pqrs.user.registered.queue)"],
+  "example": {
+    "eventId": "6f1c1f0e-8d0a-4a4e-9a7e-3b1d2c4e5f60",
+    "eventType": "UserRegistered",
+    "source": "auth-service",
+    "createdAt": "2026-10-08T10:00:00.000Z",
+    "data": {
+      "userId": "01a0efcd-7e36-7ca3-abcb-a666c5300c69",
+      "email": "juan@test.com",
+      "role": "USER",
+      "status": "ACTIVE"
+    }
+  }
+}

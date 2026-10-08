@@ -1,0 +1,137 @@
+{
+  "info": {
+    "name": "RabbitMQ Lab - Telematics PQRS",
+    "description": "RabbitMQ management HTTP API requests for the asynchronous flow auth-service -> microservices.events -> pqrs.user.registered.queue -> pqrs-service. Start the broker with `docker compose up -d rabbitmq`. If you changed RABBITMQ_MANAGEMENT_PORT, update the baseUrl variable.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "basic",
+    "basic": [
+      { "key": "username", "value": "guest", "type": "string" },
+      { "key": "password", "value": "guest", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:15672" },
+    { "key": "vhost", "value": "%2F" },
+    { "key": "exchange", "value": "microservices.events" },
+    { "key": "queue", "value": "pqrs.user.registered.queue" },
+    { "key": "routingKey", "value": "user.registered" }
+  ],
+  "item": [
+    {
+      "name": "1. Create exchange",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/exchanges/{{vhost}}/{{exchange}}",
+        "body": { "mode": "raw", "raw": "{\n  \"type\": \"direct\",\n  \"durable\": true\n}" }
+      }
+    },
+    {
+      "name": "2a. Create dead-letter exchange",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/exchanges/{{vhost}}/microservices.events.dlx",
+        "body": { "mode": "raw", "raw": "{\n  \"type\": \"direct\",\n  \"durable\": true\n}" }
+      }
+    },
+    {
+      "name": "2b. Create queue (same arguments pqrs-service declares)",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/queues/{{vhost}}/{{queue}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"durable\": true,\n  \"arguments\": {\n    \"x-dead-letter-exchange\": \"microservices.events.dlx\",\n    \"x-dead-letter-routing-key\": \"user.registered\"\n  }\n}"
+        }
+      }
+    },
+    {
+      "name": "3. Bind queue to exchange",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/bindings/{{vhost}}/e/{{exchange}}/q/{{queue}}",
+        "body": { "mode": "raw", "raw": "{\n  \"routing_key\": \"{{routingKey}}\"\n}" }
+      }
+    },
+    {
+      "name": "4. Publish a UserRegistered event",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/exchanges/{{vhost}}/{{exchange}}/publish",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"properties\": { \"content_type\": \"application/json\", \"delivery_mode\": 2 },\n  \"routing_key\": \"{{routingKey}}\",\n  \"payload\": \"{\\\"eventId\\\":\\\"{{$guid}}\\\",\\\"eventType\\\":\\\"UserRegistered\\\",\\\"source\\\":\\\"postman\\\",\\\"createdAt\\\":\\\"{{$isoTimestamp}}\\\",\\\"data\\\":{\\\"userId\\\":\\\"USR-001\\\",\\\"email\\\":\\\"postman@test.com\\\",\\\"role\\\":\\\"USER\\\",\\\"status\\\":\\\"ACTIVE\\\"}}\",\n  \"payload_encoding\": \"string\"\n}"
+        }
+      }
+    },
+    {
+      "name": "5. Consume and remove one message (ack_requeue_false)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/queues/{{vhost}}/{{queue}}/get",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"count\": 1,\n  \"ackmode\": \"ack_requeue_false\",\n  \"encoding\": \"auto\",\n  \"truncate\": 50000\n}"
+        },
+        "description": "If pqrs-service is running it consumes messages immediately, so the queue will usually be empty. Stop pqrs-service to see messages accumulate."
+      }
+    },
+    {
+      "name": "6. Peek one message without removing it (ack_requeue_true)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/queues/{{vhost}}/{{queue}}/get",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"count\": 1,\n  \"ackmode\": \"ack_requeue_true\",\n  \"encoding\": \"auto\",\n  \"truncate\": 50000\n}"
+        }
+      }
+    },
+    {
+      "name": "7. Purge the queue",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/queues/{{vhost}}/{{queue}}/contents"
+      }
+    },
+    {
+      "name": "8. Publish an invalid message (ends in the DLQ)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/exchanges/{{vhost}}/{{exchange}}/publish",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"properties\": {},\n  \"routing_key\": \"{{routingKey}}\",\n  \"payload\": \"this is not json\",\n  \"payload_encoding\": \"string\"\n}"
+        }
+      }
+    },
+    {
+      "name": "9. Read the dead-letter queue",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/queues/{{vhost}}/{{queue}}.dlq/get",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"count\": 10,\n  \"ackmode\": \"ack_requeue_true\",\n  \"encoding\": \"auto\",\n  \"truncate\": 50000\n}"
+        }
+      }
+    },
+    {
+      "name": "10. Queue status (messages, consumers, ack stats)",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/queues/{{vhost}}/{{queue}}"
+      }
+    }
+  ]
+}

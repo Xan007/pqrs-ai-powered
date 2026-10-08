@@ -1,6 +1,7 @@
 import { EncryptPassword } from '../../src/components/encrypt.password';
 import { JwtToken } from '../../src/components/jwt.token';
 import { HttpError } from '../../src/errors/http.error';
+import { EventPublisher } from '../../src/messaging/event.publisher';
 import { UserRepository } from '../../src/repositories/user.repository';
 import { UserService } from '../../src/services/user.service';
 import { buildUser, createUserRepositoryMock, UserRepositoryMock } from '../helpers/user-repository.mock';
@@ -47,6 +48,53 @@ describe('UserService', () => {
             await expect(promise).rejects.toBeInstanceOf(HttpError);
             await expect(promise).rejects.toMatchObject({ status: 409, code: 'HTTP.CONFLICT' });
             expect(repo.create).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('register → UserRegistered event', () => {
+        let publisher: jest.Mocked<EventPublisher>;
+
+        beforeEach(() => {
+            publisher = { publish: jest.fn().mockResolvedValue(undefined), close: jest.fn() };
+            service = new UserService(repo as unknown as UserRepository, publisher);
+        });
+
+        afterEach(() => jest.restoreAllMocks());
+
+        it('publishes UserRegistered with the created user', async () => {
+            const user = buildUser();
+            repo.findByEmail.mockResolvedValue(null);
+            repo.create.mockResolvedValue(user);
+
+            await service.register({ email: 'juan@test.com', password: 'password123' });
+
+            expect(publisher.publish).toHaveBeenCalledTimes(1);
+            const [routingKey, event] = publisher.publish.mock.calls[0];
+            expect(routingKey).toBe('user.registered');
+            expect(event).toMatchObject({
+                eventType: 'UserRegistered',
+                source: 'auth-service',
+                data: { userId: user.id, email: user.email, role: 'USER', status: 'ACTIVE' },
+            });
+        });
+
+        it('still registers the user when the broker is down', async () => {
+            jest.spyOn(console, 'error').mockImplementation(() => undefined);
+            repo.findByEmail.mockResolvedValue(null);
+            repo.create.mockResolvedValue(buildUser());
+            publisher.publish.mockRejectedValue(new Error('ECONNREFUSED'));
+
+            const result = await service.register({ email: 'juan@test.com', password: 'password123' });
+
+            expect(result.email).toBe('juan@test.com');
+            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('UserRegistered'), 'ECONNREFUSED');
+        });
+
+        it('does not publish when the email is already registered', async () => {
+            repo.findByEmail.mockResolvedValue(buildUser());
+
+            await expect(service.register({ email: 'juan@test.com', password: 'password123' })).rejects.toThrow();
+            expect(publisher.publish).not.toHaveBeenCalled();
         });
     });
 

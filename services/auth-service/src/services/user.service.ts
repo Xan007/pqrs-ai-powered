@@ -5,11 +5,16 @@ import { CreateUserDto } from '../dto/create.user.dto';
 import { LoginUserDto } from '../dto/login.user.dto';
 import { UserDto } from '../dto/user.dto';
 import { HttpError } from '../errors/http.error';
-import { Role } from '../models/user.model';
+import { EventPublisher, NoopEventPublisher } from '../messaging/event.publisher';
+import { buildUserRegisteredEvent, RoutingKeys } from '../messaging/events';
+import { Role, UserModel } from '../models/user.model';
 import { UserRepository } from '../repositories/user.repository';
 
 export class UserService {
-    constructor(private readonly userRepository: UserRepository) {}
+    constructor(
+        private readonly userRepository: UserRepository,
+        private readonly eventPublisher: EventPublisher = new NoopEventPublisher(),
+    ) {}
 
     async register(newUser: CreateUserDto): Promise<UserDto> {
         const email = newUser.email.trim().toLowerCase();
@@ -23,6 +28,7 @@ export class UserService {
 
         // Public registration always creates a regular USER; roles are elevated by an ADMIN.
         const user = await this.userRepository.create({ email, password: hashedPassword });
+        await this.publishUserRegistered(user);
 
         return UserDto.fromModel(user);
     }
@@ -66,5 +72,15 @@ export class UserService {
         await this.findById(id);
         const user = await this.userRepository.updateRole(id, role);
         return UserDto.fromModel(user);
+    }
+
+    // The user is already persisted: a broker outage must not fail the registration.
+    private async publishUserRegistered(user: UserModel): Promise<void> {
+        const event = buildUserRegisteredEvent(user);
+        try {
+            await this.eventPublisher.publish(RoutingKeys.userRegistered, event);
+        } catch (err) {
+            console.error(`Failed to publish ${event.eventType} for user ${user.id}:`, (err as Error).message);
+        }
     }
 }

@@ -16,4 +16,7 @@ export const env = {
     jwtSecret: required('JWT_SECRET'),
     jwtAlgorithm: (process.env.JWT_ALGORITHM || 'HS256') as Algorithm,
     accessTokenExpireMinutes: parseInt(process.env.ACCESS_TOKEN_EXPIRE_MINUTES || '60', 10),
+    // Optional: when empty, domain events are not published (e.g. Azure without a broker).
+    rabbitmqUrl: process.env.RABBITMQ_URL || '',
+    rabbitmqExchange: process.env.RABBITMQ_EXCHANGE || 'microservices.events',
 };

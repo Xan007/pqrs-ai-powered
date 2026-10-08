@@ -52,6 +52,23 @@ describe('Auth Service HTTP API', () => {
             expect(res.body.code).toBe('HTTP.CONFLICT');
         });
 
+        it('201 publishes a UserRegistered event through the injected publisher', async () => {
+            const publisher = { publish: jest.fn().mockResolvedValue(undefined), close: jest.fn() };
+            app = createApp(repo as unknown as UserRepository, publisher);
+            repo.findByEmail.mockResolvedValue(null);
+            repo.create.mockResolvedValue(user);
+
+            const res = await request(app)
+                .post('/api/v1/auth/register')
+                .send({ email: 'juan@test.com', password: 'password123' });
+
+            expect(res.status).toBe(201);
+            expect(publisher.publish).toHaveBeenCalledWith(
+                'user.registered',
+                expect.objectContaining({ eventType: 'UserRegistered', data: expect.objectContaining({ userId: user.id }) }),
+            );
+        });
+
         it('400 with validation details and the standard error shape', async () => {
             const res = await request(app).post('/api/v1/auth/register').send({ email: 'bad', password: '1' });
 
