@@ -36,6 +36,8 @@ build/
 .next/
 out/
 
+.vite/
+
 # IDEs & OS
 .vscode/
 .idea/
