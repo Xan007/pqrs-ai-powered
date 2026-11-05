@@ -2,6 +2,8 @@
 
 Telematics course project for the Systems Engineering Program at Universidad de los Llanos.
 
+docs: https://drive.google.com/drive/folders/1oqT9XXS6HjYcD_AJydByIThGh1IPEjG-?usp=sharing
+
 ## Overview
 
 This project implements a distributed PQRS platform. Users authenticate through the Auth
