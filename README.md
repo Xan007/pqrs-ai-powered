@@ -10,15 +10,19 @@ Organizations handle large volumes of PQRS (Petitions, Inquiries, Complaints, Cl
 
 This project implements an intelligent, distributed system that automates the triage process using Artificial Intelligence. The solution analyzes the sentiment and context of each submission, classifies it into standard regulatory categories, assigns the responsible organizational area, and computes an objective priority score to ensure high-impact issues are escalated immediately.
 
+## Live Azure Demo
+
+The current deployment URLs and disposable test account are documented in [deploy/azure/README.md](deploy/azure/README.md). The deployed ticket-triage queue uses BullMQ with a separate Azure Managed Redis resource in Brazil South.
+
 ---
 
 ## 2. Architecture Overview
-The system follows a **Microservices Architecture** to ensure decoupling, scalability, and independent deployment cycles. Clients talk to the services over **HTTP/REST APIs**, and the services talk to each other **asynchronously through RabbitMQ** (see [docs/rabbitmq](docs/rabbitmq/README.md)):
+The system follows a **Microservices Architecture** to ensure decoupling, scalability, and independent deployment cycles. Clients talk to the services over **HTTP/REST APIs**. RabbitMQ integration events are implemented in the repository (see [docs/rabbitmq](docs/rabbitmq/README.md)); the live Azure ticket-triage workflow uses BullMQ backed by Azure Managed Redis. The RabbitMQ registration-event flow is not enabled in the current Azure deployment.
 
 - **Frontend Client**: Web interface for user authentication and PQRS management.
 - **Authentication Service**: Manages user identity, credential verification, and session tokens.
 - **PQRS Domain Service**: Handles the lifecycle of PQRS requests, database persistence, and integrates an **internal AI Triage Module** (powered by Groq) for real-time classification, categorization, and urgency scoring.
-- **RabbitMQ Message Broker**: `auth-service` publishes `UserRegistered` to the `microservices.events` exchange; `pqrs-service` consumes it from `pqrs.user.registered.queue`.
+- **Asynchronous queues**: ticket triage uses BullMQ on Azure Managed Redis; the separately implemented RabbitMQ integration-event flow is available for local development.
 
 ---
 
