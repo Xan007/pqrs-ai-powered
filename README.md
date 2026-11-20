@@ -10,6 +10,19 @@ This project implements a distributed PQRS platform. Users authenticate through 
 Service, submit requests through the PQRS Service, and receive automated triage based on
 category, department, priority, urgency, and summary.
 
+## Live demo (Azure)
+
+- **Web app:** [Open the demo](https://polite-meadow-029cbe40f.5.azurestaticapps.net/)
+- **PQRS API and Swagger:** [Open API documentation](https://pqrs-service.wonderfulpebble-9c282134.brazilsouth.azurecontainerapps.io/docs)
+- **Auth service:** <https://auth-service.wonderfulpebble-9c282134.brazilsouth.azurecontainerapps.io>
+
+Disposable test account (`USER` role):
+
+| Email | Password |
+|---|---|
+| `demo@telematics.test` | `DemoPQRS2026!` |
+
+Use only for demonstrations. The ticket-triage queue runs with BullMQ and a separate Azure Managed Redis resource in Brazil South. See the [Azure deployment guide](deploy/azure/README.md) for the current status.
 ## Architecture
 
 - **Frontend:** React, Vite, and TypeScript.
