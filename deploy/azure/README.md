@@ -1,132 +1,50 @@
-# Azure deployment
+# Demo desplegada en Azure
 
-This directory contains the configuration and deployment script for the Auth Service and
-the PQRS Service.
+## Acceso
 
-## Azure resources
+- **Aplicación web:** <https://polite-meadow-029cbe40f.5.azurestaticapps.net/>
+- **Servicio de autenticación:** <https://auth-service.wonderfulpebble-9c282134.brazilsouth.azurecontainerapps.io>
+- **Servicio PQRS y Swagger:** <https://pqrs-service.wonderfulpebble-9c282134.brazilsouth.azurecontainerapps.io/docs>
 
-| Component | Azure resource | Purpose |
-|---|---|---|
-| Auth Service | Azure Container Apps | Public authentication API |
-| PQRS Service | Azure Container Apps | Public ticket API and triage worker |
-| Container images | Azure Container Registry Basic | Stores service images |
-| Database | Azure Database for PostgreSQL Flexible Server | Hosts `auth_db` and `pqrs_db` |
-| Queue backend | Redis sidecar in the PQRS Container App | BullMQ queue for the MVP |
-| Frontend | Azure Static Web Apps | Hosts the React application |
+Cuenta desechable de demostración (rol `USER`):
 
-The two services use separate PostgreSQL databases on the same server. They do not access
-each other's tables.
+| Campo | Valor |
+|---|---|
+| Correo | `demo@telematics.test` |
+| Contraseña | `DemoPQRS2026!` |
 
-The PQRS Container App uses one Redis sidecar and one replica because the current queue is
-not configured for durable managed Redis. This is acceptable for the MVP, but queued work
-can be lost if the container is recreated. A managed Azure Redis resource should replace
-the sidecar for a production deployment.
+La cuenta solo sirve para probar el sitio; no usarla para información real. Se puede registrar otra cuenta desde la app.
 
-## Prerequisites
+## Estado verificado
 
-Install and configure:
+- Frontend, autenticación y documentación del servicio PQRS responden correctamente.
+- `pqrs-service` corre en Azure Container Apps en Brasil Sur con una sola réplica saludable.
+- La cola BullMQ usa un **Azure Managed Redis independiente** (`telpqrs-redis-br`, Brasil Sur), vía TLS; la contraseña está guardada como secreto de Container Apps.
+- La imagen activa de PQRS es `pqrs-service:ready`, sin el Redis embebido.
+- Prueba de extremo a extremo: iniciar sesión, enviar un ticket desde la web o `POST /api/v1/tickets` y consultar `GET /api/v1/tickets/{id}`. La prueba del 20 de noviembre de 2026 terminó con estado `AI_PROCESSED` y clasificación IA.
 
-1. An Azure subscription, including Azure for Students.
-2. Azure CLI.
-3. Docker Desktop.
-4. Git Bash on Windows, or Bash on Linux/macOS.
-5. A Groq API key.
-6. Node.js and npm if the admin seed must run locally.
+La cola usada para el triage de tickets es BullMQ sobre Redis. La integración RabbitMQ `UserRegistered` descrita en [la guía de RabbitMQ](../../docs/rabbitmq/README.md) es otro flujo y no está habilitada en el despliegue actual porque `RABBITMQ_URL` no está configurada.
 
-Authenticate with Azure:
+## Recursos Azure
 
-```bash
-az login
-```
+- Azure Static Web Apps: frontend.
+- Azure Container Apps: `auth-service` y `pqrs-service`.
+- Azure Managed Redis: broker de BullMQ para el triage asíncrono.
+- Azure Database for PostgreSQL: persistencia de auth y PQRS.
+- Azure Container Registry: imágenes de los servicios.
 
-## First deployment
+Los recursos permanecen encendidos y pueden consumir el crédito de Azure. La instancia de Redis actual es de nivel de desarrollo, sin alta disponibilidad.
 
-From the repository root:
+## Variables del servicio PQRS
+
+En Container Apps, `pqrs-service` recibe `REDIS_HOST`, `REDIS_PORT`, `REDIS_TLS=true` y `REDIS_PASSWORD` como referencia a un secreto. Nunca guardes contraseñas de Azure, credenciales de PostgreSQL, claves de Groq ni tokens de sesión en este repositorio. El archivo local `deploy/azure/config.env` está ignorado por Git.
+
+## CLI útil
 
 ```bash
-cp deploy/azure/config.env.example deploy/azure/config.env
+az containerapp show -n pqrs-service -g rg-telematics-pqrs \
+  --query "{image:properties.template.containers[0].image,revision:properties.latestRevisionName}"
+az containerapp logs show -n pqrs-service -g rg-telematics-pqrs --follow
+az redisenterprise show -n telpqrs-redis-br -g rg-telematics-pqrs \
+  --query "{state:provisioningState,host:hostName,region:location}"
 ```
-
-Edit `deploy/azure/config.env` and provide:
-
-- `GROQ_API_KEY`
-- `ADMIN_EMAIL`
-- `ADMIN_PASSWORD`
-
-The script generates and persists `SUFFIX`, `JWT_SECRET`, and PostgreSQL credentials.
-Never commit `config.env`.
-
-Run the deployment:
-
-```bash
-bash deploy/azure/deploy.sh
-```
-
-The script:
-
-1. Creates or reuses the resource group.
-2. Creates an Azure Container Registry.
-3. Builds and pushes both Docker images.
-4. Creates the PostgreSQL Flexible Server and both databases.
-5. Creates the Container Apps environment.
-6. Deploys the Auth Service.
-7. Deploys the PQRS Service with its Redis sidecar.
-8. Applies Prisma migrations during container startup.
-9. Attempts to seed the initial administrator.
-
-The script prints the service URLs when deployment finishes.
-
-## Local container validation
-
-Build and run the same service images locally:
-
-```bash
-docker compose --profile app up --build
-```
-
-This starts PostgreSQL, Redis, Auth Service, and PQRS Service. Define `GROQ_API_KEY` in
-the shell if AI triage should run:
-
-```bash
-export GROQ_API_KEY=your_key
-```
-
-## Updating an existing deployment
-
-Run the same command after code changes:
-
-```bash
-bash deploy/azure/deploy.sh
-```
-
-The script reuses existing resources and deploys new image tags.
-
-## Operations
-
-View logs:
-
-```bash
-az containerapp logs show -n pqrs-service -g rg-telematics-pqrs --container pqrs-service --follow
-az containerapp logs show -n auth-service -g rg-telematics-pqrs --follow
-```
-
-Stop the PostgreSQL server when it is not needed:
-
-```bash
-az postgres flexible-server stop -g rg-telematics-pqrs -n <postgres-server-name>
-az postgres flexible-server start -g rg-telematics-pqrs -n <postgres-server-name>
-```
-
-Delete all resources when the project is finished:
-
-```bash
-az group delete -n rg-telematics-pqrs --yes --no-wait
-```
-
-## Troubleshooting
-
-- If Azure rejects the selected region, change `LOCATION` in `config.env`.
-- If Docker commands fail, start Docker Desktop and wait for the engine to become ready.
-- The first request to a service with zero replicas may take several seconds while it starts.
-- If triage remains pending, check `GROQ_API_KEY` and the PQRS logs.
-- If admin seeding fails, install Auth Service dependencies with `npm ci` and rerun the script.
