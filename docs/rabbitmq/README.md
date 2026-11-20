@@ -1,5 +1,7 @@
 # Asynchronous Communication with RabbitMQ
 
+> **Azure deployment note (20 November 2026):** RabbitMQ `UserRegistered` events are currently disabled in Azure because `RABBITMQ_URL` is not configured. This is separate from the live ticket-triage queue: PQRS tickets are processed asynchronously with BullMQ on an independent Azure Managed Redis instance in Brazil South. See [Azure deployment details](../../deploy/azure/README.md).
+
 The microservices exchange **integration events** through RabbitMQ instead of calling each other over HTTP.
 The publisher does not know who consumes the event, and the consumer processes it whenever it is available.
 
